@@ -2,6 +2,7 @@
 """Valida TLS, autenticacao e telemetria REAL do ESP32. Somente biblioteca padrao."""
 import argparse
 import json
+import math
 from pathlib import Path
 import re
 import socket
@@ -10,6 +11,19 @@ import struct
 import sys
 import time
 import uuid
+
+
+def validar_telemetria(dados, origem="sensores"):
+    if not isinstance(dados, dict) or dados.get("lixeira") != "L01":
+        raise RuntimeError("Identificacao da lixeira invalida")
+    if type(dados.get("simulado")) is not bool:
+        raise RuntimeError("Campo simulado precisa ser booleano")
+    if origem != "qualquer" and dados["simulado"] != (origem == "simulacao"):
+        raise RuntimeError("Origem diferente da esperada: " + origem)
+    for campo, maximo in [("ocupacao_pct", 100), ("massa_kg", 10000), ("distancia_cm", 1000)]:
+        valor = dados.get(campo)
+        if type(valor) not in (int, float) or not math.isfinite(valor) or not 0 <= valor <= maximo:
+            raise RuntimeError("Telemetria invalida: " + campo)
 
 
 def texto_mqtt(texto):
@@ -102,12 +116,9 @@ def verificar(args):
                     continue
                 # A assinatura pede QoS 0, portanto nao ha packet identifier aqui.
                 dados = json.loads(corpo[2 + tamanho:])
-                if (dados.get("lixeira") != "L01" or dados.get("simulado") is not True
-                        or not 0 <= dados["ocupacao_pct"] <= 100
-                        or not 0 <= dados["massa_kg"] <= 12):
-                    raise RuntimeError("Telemetria fora do formato esperado do EcoBin")
                 if tipo & 1:
                     continue  # Exige publicacoes novas, nao mensagens retidas antigas.
+                validar_telemetria(dados, args.origem)
                 recebidos += 1
                 print("LEITURA " + str(recebidos) + ": " + json.dumps(dados, ensure_ascii=False), flush=True)
             mqtt.sendall(b"\xe0\x00")
@@ -119,6 +130,8 @@ if __name__ == "__main__":
     parser.add_argument("--sketch", type=Path, default=Path(__file__).resolve().parents[1] / "ecoBin.ino")
     parser.add_argument("--timeout", type=float, default=45)
     parser.add_argument("--quantidade", type=int, default=3)
+    parser.add_argument("--origem", choices=["sensores", "simulacao", "qualquer"], default="sensores",
+                        help="Origem esperada das leituras (padrao: sensores reais).")
     argumentos = parser.parse_args()
     if argumentos.quantidade < 1 or argumentos.timeout <= 0:
         parser.error("quantidade e timeout precisam ser positivos")

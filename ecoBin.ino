@@ -4,21 +4,21 @@
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 #include <time.h>
+#include <HX711.h>
+#include <Preferences.h>
+#include <math.h>
+#include <stdlib.h>
 #include "secrets.h"
 
 // ============================================
 // ECOBIN - CONFIGURACOES
 // ============================================
 
-// Wi-Fi
-
-
+// Wi-Fi e credenciais MQTT: secrets.h (arquivo local).
 
 // EMQX Cloud Serverless
 const char* MQTT_HOST = "w7017121.ala.us-east-1.emqxsl.com";
 constexpr uint16_t MQTT_PORT = 8883;
-
-
 
 // Topico para o Node-RED
 const char* MQTT_TOPIC = "ecobin/L01/telemetria";
@@ -51,51 +51,191 @@ MrY=
 )EOF";
 
 // ============================================
-// ECOBIN - SIMULACAO ORIGINAL
+// ECOBIN - SENSORES REAIS
 // ============================================
 
+constexpr uint8_t HX_DT = 19;
+constexpr uint8_t HX_SCK = 18;
+constexpr uint8_t TRIG = 4;
+constexpr uint8_t ECHO = 5;
+// HC-SR04: ECHO passa pelo divisor resistivo antes do GPIO5. GND comum.
+// Ajuste estas distancias a montagem fisica da lixeira.
 constexpr float VAZIO_CM = 50.0f;
 constexpr float CHEIO_CM = 5.0f;
+static_assert(VAZIO_CM > CHEIO_CM && CHEIO_CM >= 0, "Distancias da lixeira invalidas");
 constexpr float LIMITE_KG = 8.0f;
 constexpr float LIMITE_PCT = 80.0f;
-
-float massaKg = 0.0f;
-float ocupacaoPct = 0.0f;
-
-// Intervalo de publicacao: 1 segundo
+constexpr uint8_t AMOSTRAS_PESO = 10;
+constexpr uint8_t AMOSTRAS_CALIBRACAO = 20;
+constexpr unsigned long ESPERA_HX_MS = 250;
 constexpr unsigned long INTERVALO_MS = 1000;
 constexpr unsigned long RECONEXAO_MS = 5000;
+
+HX711 balanca;
+Preferences memoria;
+float fatorCalibracao = 1.0f;  // contagens por GRAMA, igual a balanca_kg.ino
+bool calibrada = false;
+bool temTara = false;
+bool memoriaDisponivel = false;
+const char* erroPesagem = "OK";
 
 unsigned long ultimaLeitura = 0;
 unsigned long ultimaTentativaMQTT = 0;
 unsigned long ultimaTentativaWiFi = 0;
 unsigned long ultimaTentativaHorario = 0;
 
-// ============================================
-// CLIENTES DE REDE
-// ============================================
-
 WiFiClientSecure wifiSecure;
 PubSubClient mqtt(wifiSecure);
 
-// ============================================
-// FUNCOES DA LIXEIRA
-// ============================================
-
-void esvaziarLixeira() {
-  massaKg = 0.0f;
-  ocupacaoPct = 0.0f;
-
-  Serial.println("[EcoBin] Lixeira esvaziada!");
+// A biblioteca read_average espera indefinidamente se o modulo parar no meio.
+// Confira disponibilidade em cada amostra e aborte a media inteira em caso de falha.
+bool lerMediaHX(uint8_t amostras, double &media) {
+  double soma = 0;
+  for (uint8_t i = 0; i < amostras; ++i) {
+    if (mqtt.connected()) mqtt.loop();
+    if (!balanca.wait_ready_timeout(ESPERA_HX_MS, 1)) {
+      erroPesagem = "HX711 SEM RESPOSTA";
+      return false;
+    }
+    const long bruto = balanca.read();
+    if (bruto <= -8388607L || bruto >= 8388606L) {
+      erroPesagem = "HX711 SATURADO: confira as ligacoes das celulas";
+      return false;
+    }
+    soma += bruto;
+  }
+  media = soma / amostras;
+  erroPesagem = "OK";
+  return true;
 }
 
-void atualizarSimulacao() {
-  // Entrada simulada de residuos
-  ocupacaoPct += random(20, 51) / 10.0f;
-  massaKg += random(20, 51) / 100.0f;
+void zerarBalanca() {
+  temTara = false;
+  Serial.println("[Balanca] Realizando tara. Plataforma deve estar vazia.");
+  double media;
+  if (!lerMediaHX(AMOSTRAS_CALIBRACAO, media)) {
+    Serial.println(erroPesagem);
+    return;
+  }
+  balanca.set_offset(lround(media));
+  temTara = true;
+  Serial.println("[Balanca] Tara concluida!");
+}
 
-  ocupacaoPct = constrain(ocupacaoPct, 0.0f, 100.0f);
-  massaKg = constrain(massaKg, 0.0f, 12.0f);
+void calibrar(float pesoConhecidoGramas) {
+  if (!isfinite(pesoConhecidoGramas) || pesoConhecidoGramas <= 0) {
+    Serial.println("[Balanca] Referencia invalida. Use c 206 para 206 gramas.");
+    return;
+  }
+  if (!temTara) {
+    Serial.println("[Balanca] Primeiro, plataforma vazia e comando t.");
+    return;
+  }
+  Serial.println("[Balanca] Calibrando em gramas. Nao toque na plataforma.");
+  const unsigned long inicio = millis();
+  while (millis() - inicio < 2000) {
+    if (mqtt.connected()) mqtt.loop();
+    delay(5);
+  }
+  double media;
+  if (!lerMediaHX(AMOSTRAS_CALIBRACAO, media)) {
+    Serial.println(erroPesagem);
+    return;
+  }
+  const double sinal = media - balanca.get_offset();
+  if (fabs(sinal) < 100) {
+    Serial.println("[Balanca] Sinal insuficiente. Confira a massa de referencia.");
+    return;
+  }
+  const float novoFator = sinal / pesoConhecidoGramas;
+  if (!isfinite(novoFator) || fabs(novoFator) < 0.000001f) {
+    Serial.println("[Balanca] Fator invalido; calibracao anterior preservada.");
+    return;
+  }
+  fatorCalibracao = novoFator;  // O sinal negativo e permitido; nao use abs().
+  balanca.set_scale(fatorCalibracao);
+  calibrada = true;
+  const bool fatorSalvo = memoriaDisponivel &&
+      memoria.putFloat("fator", fatorCalibracao) == sizeof(float);
+  const bool salvo = fatorSalvo && memoria.putBool("calibrada", true) == 1;
+  Serial.println(salvo ? "[Balanca] Calibracao concluida e salva!"
+                       : "[Balanca] Calibrada somente nesta sessao; falha ao salvar.");
+  Serial.printf("[Balanca] Fator: %.6f contagens/g | Referencia: %.1f g\n",
+                fatorCalibracao, pesoConhecidoGramas);
+}
+
+float lerPesoGramas() {
+  if (!temTara) { erroPesagem = "SEM TARA: plataforma vazia, envie t"; return NAN; }
+  if (!calibrada) { erroPesagem = "NAO CALIBRADA: envie c <gramas>"; return NAN; }
+  double media;
+  if (!lerMediaHX(AMOSTRAS_PESO, media)) return NAN;
+  float gramas = (media - balanca.get_offset()) / fatorCalibracao;
+  if (!isfinite(gramas)) { erroPesagem = "MASSA INVALIDA"; return NAN; }
+  if (fabs(gramas) < 2.0f) gramas = 0;
+  // A API aceita massa nao negativa. Nao transforme erro de tara em peso positivo.
+  if (gramas < 0 || gramas > 10000000.0f) {
+    erroPesagem = "MASSA FORA DA FAIXA: confira tara e calibracao";
+    return NAN;
+  }
+  erroPesagem = "OK";
+  return gramas;
+}
+
+float lerDistanciaCm() {
+  digitalWrite(TRIG, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG, LOW);
+  const unsigned long duracao = pulseIn(ECHO, HIGH, 30000UL);
+  if (duracao == 0) return NAN;
+  return duracao * 0.0343f / 2.0f;
+}
+
+void verificarComandos() {
+  if (!Serial.available()) return;
+  String comando = Serial.readStringUntil('\n');
+  comando.trim();
+  if (comando.length() == 0) return;
+  if (comando.equalsIgnoreCase("t")) zerarBalanca();
+  else if (comando.startsWith("c ") || comando.startsWith("C ")) {
+    String argumento = comando.substring(2);
+    argumento.trim();
+    argumento.replace(',', '.');
+    const char* inicio = argumento.c_str();
+    char* fim;
+    const float gramas = strtof(inicio, &fim);
+    if (fim == inicio || *fim != '\0') Serial.println("Valor invalido. Exemplo: c 206 (gramas).");
+    else calibrar(gramas);
+  } else if (comando.equalsIgnoreCase("f")) {
+    Serial.printf("Fator: %.6f contagens/g | Calibrada: %s | Tara: %s\n",
+                  fatorCalibracao, calibrada ? "sim" : "nao", temTara ? "sim" : "nao");
+  } else {
+    Serial.println("Comandos: t = tara; c 206 = calibrar com 206 g; f = fator; help = ajuda.");
+  }
+}
+
+void iniciarSensores() {
+  pinMode(TRIG, OUTPUT);
+  digitalWrite(TRIG, LOW);
+  pinMode(ECHO, INPUT);
+  memoriaDisponivel = memoria.begin("ecobin", false);
+  if (memoriaDisponivel) {
+    calibrada = memoria.getBool("calibrada", false);
+    fatorCalibracao = memoria.getFloat("fator", 1.0f);
+  }
+  if (!isfinite(fatorCalibracao) || fabs(fatorCalibracao) < 0.000001f) {
+    calibrada = false;
+    fatorCalibracao = 1.0f;
+  }
+  balanca.begin(HX_DT, HX_SCK);
+  balanca.set_scale(fatorCalibracao);
+  Serial.println("HX711: DT=19, SCK=18 | HC-SR04: TRIG=4, ECHO=5");
+  Serial.println(calibrada ? "[Balanca] Calibracao recuperada (gramas)."
+                          : "[Balanca] Calibracao necessaria: t e depois c <gramas>.");
+  Serial.println("[Balanca] Tara automatica em 3 s. Mantenha a plataforma vazia.");
+  delay(3000);
+  zerarBalanca();
 }
 
 // ============================================
@@ -245,12 +385,19 @@ void conectarMQTT() {
 // ============================================
 
 void publicarTelemetria() {
-  // Mantem a simulacao mesmo sem conexao MQTT
-  atualizarSimulacao();
-
-  float distanciaCm =
-      VAZIO_CM -
-      (ocupacaoPct / 100.0f) * (VAZIO_CM - CHEIO_CM);
+  const float pesoGramas = lerPesoGramas();
+  const float distanciaCm = lerDistanciaCm();
+  if (!isfinite(pesoGramas)) Serial.printf("[Balanca] %s\n", erroPesagem);
+  else Serial.printf("[Balanca] %.3f kg | %.1f g\n", pesoGramas / 1000.0f, pesoGramas);
+  if (!isfinite(distanciaCm)) Serial.println("[HC-SR04] SEM ECO: confira alimentacao e ligacoes.");
+  else Serial.printf("[HC-SR04] %.1f cm\n", distanciaCm);
+  if (!isfinite(pesoGramas) || !isfinite(distanciaCm)) {
+    Serial.println("[EcoBin] Leitura incompleta; telemetria nao publicada.");
+    return;
+  }
+  const float massaKg = pesoGramas / 1000.0f;
+  const float ocupacaoPct = constrain(
+      (VAZIO_CM - distanciaCm) * 100.0f / (VAZIO_CM - CHEIO_CM), 0.0f, 100.0f);
 
   bool coletar =
       massaKg >= LIMITE_KG ||
@@ -261,7 +408,7 @@ void publicarTelemetria() {
       ocupacaoPct >= 70.0f ? "acompanhar" :
       "normal";
 
-  // Monta o mesmo JSON do codigo original
+  // Mesmo contrato do Node-RED/site; leituras reais em kg e cm.
   char payload[384];
 
   int tamanho = snprintf(
@@ -271,9 +418,9 @@ void publicarTelemetria() {
       "\"lixeira\":\"L01\","
       "\"setor\":\"Producao A\","
       "\"compartimento\":\"reciclavel\","
-      "\"simulado\":true,"
+      "\"simulado\":false,"
       "\"uptime_ms\":%lu,"
-      "\"massa_kg\":%.2f,"
+      "\"massa_kg\":%.3f,"
       "\"distancia_cm\":%.1f,"
       "\"ocupacao_pct\":%.1f,"
       "\"coletar\":%s,"
@@ -318,13 +465,14 @@ void publicarTelemetria() {
 
 void setup() {
   Serial.begin(115200);
-  randomSeed(micros());
+  Serial.setTimeout(100);
 
   Serial.println();
   Serial.println("==========================");
   Serial.println(" EcoBin | MQTT EMQX Cloud ");
   Serial.println("==========================");
-  Serial.println("Envie 't' para esvaziar.");
+  Serial.println("Sensores reais | t = tara | c 206 = calibrar com 206 g | f = fator");
+  iniciarSensores();
 
   // Configure os clientes antes de tentar a rede, para permitir recuperacao de falhas.
   WiFi.onEvent([](WiFiEvent_t evento, WiFiEventInfo_t info) {
@@ -353,14 +501,7 @@ void setup() {
 // ============================================
 
 void loop() {
-  // Comando original de esvaziamento
-  while (Serial.available()) {
-    char comando = Serial.read();
-
-    if (comando == 't' || comando == 'T') {
-      esvaziarLixeira();
-    }
-  }
+  verificarComandos();
 
   // Reconexao Wi-Fi
   if (WiFi.status() != WL_CONNECTED) {
@@ -385,7 +526,7 @@ void loop() {
     mqtt.loop();
   }
 
-  // Publicacao a cada segundo
+  // Ciclo nominal de 1 s; aquisicao e reconexoes podem aumentar esse intervalo.
   unsigned long agora = millis();
 
   if (agora - ultimaLeitura >= INTERVALO_MS) {

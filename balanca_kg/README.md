@@ -1,5 +1,7 @@
 # EcoBin — HX711 com o codigo fornecido pelo usuario
 
+Para usar estes sensores junto com Wi-Fi e MQTT/EMQX, grave o **`../ecoBin.ino`** da raiz do projeto. A integracao preserva os mesmos pinos, comandos e fator salvo em gramas. Este arquivo `balanca_kg.ino` continua disponivel para diagnostico local sem rede. Consulte `../README.md` para a versao integrada.
+
 Abra `balanca_kg.ino` no Arduino IDE. O sketch ativo em `/home/caio/Arduino/sketch_sep4a/sketch_sep4a.ino` foi atualizado com o mesmo conteudo. Se o IDE estava aberto, reabra o arquivo para carregar a versao atual.
 
 A pesagem agora usa **HX711 Arduino Library 0.7.5**, de Bogdan Necula (bogde), instalada em `/home/caio/Arduino/libraries/HX711_Arduino_Library`. Ela fornece `tare`, `get_value`, `get_units`, `set_scale` e `wait_ready_timeout`. Esta versao deriva do codigo colado pelo usuario, com leitura do HC-SR04 acrescentada. Usa tambem Preferences, incluido no pacote ESP32.
