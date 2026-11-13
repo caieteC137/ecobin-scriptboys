@@ -31,7 +31,7 @@ sudo docker compose up -d --build
 sudo docker compose ps
 ```
 
-Os arquivos `nodered/flows_cred.json` versionados contem somente referencias `${VARIAVEL}`. As senhas reais ficam no ambiente privado. Na primeira execucao, `start.sh` copia os fluxos para o volume `/data`; os proximos inicios preservam alteracoes feitas no editor.
+Os arquivos `nodered/flows_cred.json` versionados contem somente referencias `${VARIAVEL}`. As senhas reais ficam no ambiente privado. Na primeira execucao, `start.sh` copia os fluxos para `/data/ecobin-flows.json` e `/data/ecobin-flows_cred.json`; os proximos inicios preservam alteracoes feitas no editor.
 
 ## Abrir o editor Node-RED
 

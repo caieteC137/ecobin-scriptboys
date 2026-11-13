@@ -11,7 +11,7 @@ $('#today').textContent = new Date().toLocaleDateString('pt-BR', { day: 'numeric
 
 async function api(path) {
   const response = await fetch(path, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
-  if (!response.ok) throw new Error('A API local retornou ' + response.status);
+  if (!response.ok) throw new Error('A API retornou ' + response.status);
   return response.json();
 }
 
@@ -161,7 +161,7 @@ async function update(force = false) {
     } else if (state.view === 'historico' && (force || Date.now() - state.lastHistory > 3000)) await updateHistory();
   } catch {
     $('#server-error').hidden = false;
-    $('#live-state').innerHTML = '<span class="dot gray"></span>API local indisponível';
+    $('#live-state').innerHTML = '<span class="dot gray"></span>API indisponível';
   } finally { state.loading = false; }
 }
 
@@ -178,7 +178,7 @@ function navigate() {
 }
 
 $('#device-search').addEventListener('input', renderDevices);
-$('#refresh').addEventListener('click', async () => { await update(true); toast($('#server-error').hidden ? 'Leituras atualizadas.' : 'Não foi possível atualizar. Confira o servidor local.'); });
+$('#refresh').addEventListener('click', async () => { await update(true); toast($('#server-error').hidden ? 'Leituras atualizadas.' : 'Não foi possível atualizar. Confira a conexão com o servidor.'); });
 $('#chart-device').addEventListener('change', () => updateChart().catch(() => toast('Não foi possível carregar o gráfico.')));
 for (const selector of ['#history-device', '#history-period']) $(selector).addEventListener('change', () => updateHistory().catch(() => toast('Não foi possível carregar o histórico.')));
 window.addEventListener('hashchange', navigate);

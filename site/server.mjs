@@ -64,7 +64,7 @@ export async function createApplication({ database = resolve(root, 'data/ecobin.
         return json(res, 201, { ok: true, id: saved.id, received_at: saved.received_at });
       }
       if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 404, { error: 'Rota nao encontrada.' });
-      if (url.pathname === '/api/health') return json(res, 200, { ok: true, service: 'EcoBin local' });
+      if (url.pathname === '/api/health') return json(res, 200, { ok: true, service: 'EcoBin' });
       if (url.pathname === '/api/resumo') return json(res, 200, { ...store.summary(), environment });
       if (url.pathname === '/api/historico') return json(res, 200, store.history(filters(url)));
       if (url.pathname === '/api/exportar.csv') {

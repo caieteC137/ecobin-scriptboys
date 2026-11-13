@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#174b3c">
-  <meta name="description" content="Monitoramento local das lixeiras EcoBin: massa, ocupação, histórico e alertas de coleta.">
+  <meta name="description" content="Monitoramento das lixeiras EcoBin: massa, ocupação, histórico e alertas de coleta.">
   <title>EcoBin · Monitoramento de coleta</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
@@ -38,7 +38,7 @@
   </aside>
   <main id="main">
     <header class="topbar"><div class="breadcrumb">Operação <span>/</span> <strong id="breadcrumb-current">Visão geral</strong></div><div class="topbar-right"><span id="today"></span><span class="local-tag">LOCAL</span></div></header>
-    <div id="server-error" class="error-banner" role="alert" hidden>Não foi possível acessar a API local. Verifique se o servidor do site está em execução.</div>
+    <div id="server-error" class="error-banner" role="alert" hidden>Não foi possível acessar a API. Verifique sua conexão com o servidor do site.</div>
     <section class="page" id="page-visao">
       <div class="page-heading"><div><p class="eyebrow">PAINEL DE OPERAÇÃO</p><h1>Monitoramento de coleta</h1><p>Acompanhe massa, ocupação e os pontos que precisam de atenção.</p></div><button class="button" id="refresh"><svg><use href="#i-refresh"/></svg>Atualizar</button></div>
       <div class="live-strip"><span id="live-state"><span class="dot gray"></span>Aguardando leituras</span><span id="last-update">O Node-RED alimenta este painel automaticamente.</span></div>
@@ -52,7 +52,7 @@
       <div id="devices" class="device-grid"><div class="empty"><svg><use href="#i-bin"/></svg><h3>Aguardando a primeira leitura</h3><p>Ligue o ESP32 e mantenha o Node-RED em execução. Os pontos aparecem aqui ao receber telemetria.</p><a href="#integracao">Ver como conectar <span>↗</span></a></div></div>
       <div class="lower-grid">
         <article class="panel chart-panel"><div class="panel-heading"><div><h2>Ocupação ao longo do tempo</h2><p>Média das leituras por intervalo</p></div><select id="chart-device" aria-label="Lixeira do gráfico"><option value="">Selecione uma lixeira</option></select></div><div class="chart-legend"><span><i></i>Ocupação (%)</span><span><i class="threshold"></i>Limite de coleta · 80%</span></div><div class="chart-wrap"><canvas id="chart" aria-label="Gráfico de ocupação da lixeira selecionada" role="img"></canvas><p id="chart-empty">O gráfico aparecerá com as primeiras leituras.</p></div><div class="chart-footer"><span>Janela de 60 minutos</span><span id="chart-points">0 leituras</span></div></article>
-        <article class="panel events-panel"><div class="panel-heading"><div><h2>Eventos recentes</h2><p>Limites atingidos e níveis normalizados</p></div><span id="event-count" class="count">0</span></div><div id="events" class="event-list"><div class="small-empty">Nenhum evento registrado.</div></div><div class="panel-note">Os eventos permanecem no histórico local.</div></article>
+        <article class="panel events-panel"><div class="panel-heading"><div><h2>Eventos recentes</h2><p>Limites atingidos e níveis normalizados</p></div><span id="event-count" class="count">0</span></div><div id="events" class="event-list"><div class="small-empty">Nenhum evento registrado.</div></div><div class="panel-note">Os eventos permanecem no histórico.</div></article>
       </div>
       <div class="section-title table-title"><div><h2>Últimas leituras</h2><span id="reading-count">Recebidas pelo Node-RED</span></div><a class="text-link" href="#historico">Ver histórico completo <span>↗</span></a></div>
       <div class="panel table-wrap"><table><thead><tr><th>Horário</th><th>Lixeira / setor</th><th>Compartimento</th><th>Massa</th><th>Ocupação</th><th>Situação</th></tr></thead><tbody id="recent-rows"><tr><td colspan="6" class="table-empty">Nenhuma leitura recebida ainda.</td></tr></tbody></table></div>
@@ -61,7 +61,7 @@
     <section class="page" id="page-historico" hidden>
       <div class="page-heading"><div><p class="eyebrow">REGISTROS LOCAIS</p><h1>Histórico de leituras</h1><p>Consulte as medições recebidas e exporte os dados para a apresentação.</p></div><a class="button primary" id="export-csv" href="/api/exportar.csv"><svg><use href="#i-arrow"/></svg>Exportar CSV</a></div>
       <div class="panel filter-bar"><label>Lixeira<select id="history-device"><option value="">Todas as lixeiras</option></select></label><label>Período<select id="history-period"><option value="15">Últimos 15 minutos</option><option value="60" selected>Última hora</option><option value="360">Últimas 6 horas</option><option value="1440">Últimas 24 horas</option><option value="10080">Últimos 7 dias</option></select></label><span id="history-count">0 registros</span></div>
-      <div class="panel table-wrap"><table><thead><tr><th>Recebido em</th><th>Lixeira / setor</th><th>Compartimento</th><th>Massa</th><th>Ocupação</th><th>Situação</th><th>Origem</th></tr></thead><tbody id="history-rows"><tr><td colspan="7" class="table-empty">Nenhuma leitura neste período.</td></tr></tbody></table></div><p class="footnote">A tabela mostra as 100 leituras mais recentes do filtro. O CSV exporta até 100 mil registros. Retenção local de 7 dias.</p>
+      <div class="panel table-wrap"><table><thead><tr><th>Recebido em</th><th>Lixeira / setor</th><th>Compartimento</th><th>Massa</th><th>Ocupação</th><th>Situação</th><th>Origem</th></tr></thead><tbody id="history-rows"><tr><td colspan="7" class="table-empty">Nenhuma leitura neste período.</td></tr></tbody></table></div><p class="footnote">A tabela mostra as 100 leituras mais recentes do filtro. O CSV exporta até 100 mil registros. Retenção de 7 dias.</p>
     </section>
     <section class="page" id="page-integracao" hidden>
       <div class="page-heading"><div><p class="eyebrow">CONEXÃO LOCAL</p><h1>Do ESP32 ao painel</h1><p>O site recebe as leituras do Node-RED e guarda o histórico neste computador.</p></div><span class="local-tag">SEM PUBLICAÇÃO EXTERNA</span></div>
@@ -69,7 +69,7 @@
       <div class="integration-grid"><article class="panel integration-card"><span class="step-number">A</span><h2>Recebimento de leituras</h2><p>O nó HTTP Request do fluxo envia cada leitura para este endereço:</p><code>POST http://127.0.0.1:3000/api/telemetria</code><dl><dt>Formato</dt><dd>JSON · Content-Type: application/json</dd><dt>Tópico MQTT</dt><dd>ecobin/L01/telemetria</dd><dt>Histórico</dt><dd>site/data/ecobin.sqlite</dd></dl><p class="muted">O horário mostrado no site corresponde ao recebimento da leitura. O servidor escuta somente neste computador.</p></article><article class="panel integration-card"><span class="step-number">B</span><h2>Alertas pelo Telegram</h2><p>No Node-RED, configure o token do bot EcoBin e o Chat ID. O fluxo avisa ao atingir 80% de ocupação ou 8 kg.</p><p>Novos alertas são liberados quando a leitura volta a até 70% e até 7 kg. Isso evita mensagens repetidas a cada segundo.</p><a class="button" href="http://127.0.0.1:1880" target="_blank" rel="noopener">Abrir Node-RED <span>↗</span></a></article></div>
       <article class="integration-note"><svg><use href="#i-check"/></svg><div><strong>Pronto para testar localmente</strong><p>Este painel não envia as leituras para hospedagem externa. O EMQX continua sendo o broker na nuvem. Mantenha o servidor do site, o Node-RED e o ESP32 ligados durante a demonstração.</p></div></article>
     </section>
-    <footer class="main-footer"><span>EcoBin / ScriptBoys</span><span>IoT e computação em nuvem · Protótipo local</span></footer>
+    <footer class="main-footer"><span>EcoBin / ScriptBoys</span><span>IoT e computação em nuvem · Protótipo</span></footer>
   </main>
   <div id="toast" class="toast" role="status" hidden></div>
 </body>

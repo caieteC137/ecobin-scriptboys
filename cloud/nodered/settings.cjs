@@ -5,7 +5,7 @@ for (const name of ['NODE_RED_CREDENTIAL_SECRET', 'NODE_RED_ADMIN_PASSWORD_HASH'
 module.exports = {
   uiPort: 1880,
   uiHost: '0.0.0.0',
-  flowFile: 'flows.json',
+  flowFile: 'ecobin-flows.json',
   credentialSecret: process.env.NODE_RED_CREDENTIAL_SECRET,
   adminAuth: {
     type: 'credentials',
