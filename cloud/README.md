@@ -83,3 +83,15 @@ Para parar sem apagar dados: `sudo docker compose stop`. Para iniciar: `sudo doc
 Antes de uma alteracao importante, faca backup consistente do SQLite e do volume do Node-RED. Proteja o backup do Node-RED e o `.env`, pois podem conter credenciais. O `.gitignore` exclui dados locais, tokens, chaves SSH e arquivos temporarios de apresentacao.
 
 Se HTTPS nao abrir, confira DNS, regras de entrada TCP 80/443 na Azure e logs do Caddy. Se o painel abrir sem leituras recentes, confira a energia/Wi-Fi do ESP32 e o estado MQTT pelo tunel. Nao e necessario deixar o computador pessoal ligado para o site e o Node-RED da VM funcionarem.
+
+## Validacao da implantacao em 12/11/2026
+
+- Painel publico, API de consulta, historico e CSV responderam HTTP 200 pelo endereco HTTPS acima. Certificado publico validado com TLS 1.3.
+- Conexao SSE publica respondeu HTTP 200 e evento `conectado`. A interface foi aberta e conferida no navegador.
+- `POST /api/telemetria`, `/flows`, `/ecobin/estado` e `/.env` responderam 404 pelo endereco publico.
+- API administrativa do Node-RED respondeu 401 sem login. Login pelo tunel SSH foi validado.
+- Node-RED conectado ao EMQX com TLS e cliente `ecobin-nodered-azure`.
+- Bot Telegram identificado e mensagem de teste entregue pelo fluxo da VM. O polling foi transferido para a nuvem; a configuracao local do mesmo bot ficou em `none` para evitar conflito.
+- Banco local copiado com 1.034 registros, preservados depois de recriar o container do site. Os volumes permanecem na VM.
+- Seis testes do site e seis testes do fluxo passaram; firmware ESP32 compilado com sucesso apos separar as credenciais.
+- O teste completo com uma nova publicacao do ESP32 ficou para depois, conforme combinado. Nao foram inseridas leituras artificiais para apresentar a placa como online. A resposta `/start` na instancia cloud ainda depende de uma nova mensagem enviada pelo usuario.
