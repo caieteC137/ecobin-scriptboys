@@ -1,0 +1,64 @@
+name: ecobin
+services:
+  site:
+    build:
+      context: ..
+      dockerfile: cloud/site.Dockerfile
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      ECOBIN_DB: /data/ecobin.sqlite
+      ECOBIN_ENVIRONMENT: azure
+      ECOBIN_INGEST_TOKEN: ${ECOBIN_INGEST_TOKEN:?Defina ECOBIN_INGEST_TOKEN}
+    volumes:
+      - site_data:/data
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+  node-red:
+    build:
+      context: ..
+      dockerfile: cloud/nodered/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      site:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:1880:1880
+    environment:
+      TZ: America/Sao_Paulo
+      MQTT_HOST: ${MQTT_HOST:-w7017121.ala.us-east-1.emqxsl.com}
+      MQTT_USER: ${MQTT_USER:?Defina MQTT_USER}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?Defina MQTT_PASSWORD}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?Defina TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:?Defina TELEGRAM_CHAT_ID}
+      TELEGRAM_UPDATE_MODE: ${TELEGRAM_UPDATE_MODE:-none}
+      ECOBIN_API_URL: http://site:3000/api/telemetria
+      ECOBIN_INGEST_TOKEN: ${ECOBIN_INGEST_TOKEN:?Defina ECOBIN_INGEST_TOKEN}
+      NODE_RED_ADMIN_USER: ${NODE_RED_ADMIN_USER:-admin}
+      NODE_RED_ADMIN_PASSWORD_HASH: ${NODE_RED_ADMIN_PASSWORD_HASH:?Defina NODE_RED_ADMIN_PASSWORD_HASH}
+      NODE_RED_CREDENTIAL_SECRET: ${NODE_RED_CREDENTIAL_SECRET:?Defina NODE_RED_CREDENTIAL_SECRET}
+    volumes:
+      - node_red_data:/data
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      site:
+        condition: service_healthy
+    ports:
+      - 80:80
+      - 443:443
+    environment:
+      PUBLIC_HOSTNAME: ${PUBLIC_HOSTNAME:?Defina PUBLIC_HOSTNAME}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+volumes:
+  site_data:
+  node_red_data:
+  caddy_data:
+  caddy_config:

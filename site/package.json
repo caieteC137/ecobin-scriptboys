@@ -1,0 +1,13 @@
+{
+  "name": "ecobin-local",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Painel local do EcoBin com API de ingestao e historico SQLite",
+  "engines": { "node": ">=24.0.0" },
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}

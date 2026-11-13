@@ -1,0 +1,15 @@
+{$PUBLIC_HOSTNAME} {
+    encode zstd gzip
+    @public {
+        method GET HEAD
+        path / /styles.css /app.js /favicon.svg /api/health /api/resumo /api/historico /api/exportar.csv /api/eventos
+    }
+    handle @public {
+        reverse_proxy site:3000 {
+            flush_interval -1
+        }
+    }
+    handle {
+        respond "Not found" 404
+    }
+}

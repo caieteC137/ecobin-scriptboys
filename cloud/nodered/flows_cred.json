@@ -1,0 +1,9 @@
+{
+  "ecobin_broker": {
+    "user": "${MQTT_USER}",
+    "password": "${MQTT_PASSWORD}"
+  },
+  "ecobin_telegram_bot": {
+    "token": "${TELEGRAM_BOT_TOKEN}"
+  }
+}

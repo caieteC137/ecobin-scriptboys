@@ -1,0 +1,16 @@
+.git
+**/node_modules
+**/data
+**/.env
+**/.env.*
+**/secrets.h
+**/*_cred.json
+!cloud/nodered/flows_cred.json
+**/*.pem
+**/*.key
+**/*.bak
+**/*.sqlite*
+**/*.log
+**/__pycache__
+apresentacao
+cloud/admin-password.txt

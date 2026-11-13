@@ -1,0 +1,700 @@
+[
+  {
+    "id": "ecobin_local_flow",
+    "type": "tab",
+    "label": "EcoBin | EMQX + Site + Telegram",
+    "disabled": false,
+    "info": "Fluxo local do EcoBin. Consulte README.md do projeto para configurar o bot Telegram."
+  },
+  {
+    "id": "ecobin_broker",
+    "type": "mqtt-broker",
+    "name": "EcoBin · EMQX Cloud TLS",
+    "broker": "w7017121.ala.us-east-1.emqxsl.com",
+    "port": "8883",
+    "clientid": "ecobin-nodered-local",
+    "autoConnect": true,
+    "usetls": true,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "tls": "ecobin_tls"
+  },
+  {
+    "id": "ecobin_tls",
+    "type": "tls-config",
+    "name": "TLS · verificar certificado EMQX",
+    "cert": "",
+    "key": "",
+    "ca": "",
+    "certname": "",
+    "keyname": "",
+    "caname": "",
+    "servername": "w7017121.ala.us-east-1.emqxsl.com",
+    "verifyservercert": true,
+    "alpnprotocol": ""
+  },
+  {
+    "id": "ecobin_telegram_bot",
+    "type": "telegram bot",
+    "botname": "EcoBin - PREENCHER TOKEN",
+    "usernames": "",
+    "chatids": "",
+    "baseapiurl": "",
+    "testenvironment": false,
+    "updatemode": "polling",
+    "pollinterval": 300,
+    "addressfamily": "",
+    "usesocks": false,
+    "sockshost": "",
+    "socksprotocol": "socks5",
+    "socksport": 6667,
+    "socksusername": "anonymous",
+    "sockspassword": "",
+    "bothost": "",
+    "botpath": "",
+    "localbothost": "0.0.0.0",
+    "localbotport": 8443,
+    "publicbotport": 8443,
+    "privatekey": "",
+    "certificate": "",
+    "useselfsignedcertificate": false,
+    "sslterminated": false,
+    "verboselogging": false
+  },
+  {
+    "id": "ecobin_guide",
+    "type": "comment",
+    "z": "ecobin_local_flow",
+    "name": "EcoBin | EMQX → site local + Telegram",
+    "x": 290,
+    "y": 40,
+    "wires": [],
+    "info": "Fluxo do EcoBin. Recebe telemetria real do ESP32 pelo EMQX, valida e envia ao site local. Telegram: preencha Chat ID no no laranja e Token no bot EcoBin. Clique Testar Telegram somente depois de enviar /start ao seu bot. Limites: 80% ou 8 kg; rearmar abaixo de 70% e 7 kg. O token nunca deve ir no JSON do site."
+  },
+  {
+    "id": "ecobin_mqtt",
+    "type": "mqtt in",
+    "z": "ecobin_local_flow",
+    "name": "ESP32 / EMQX · telemetria",
+    "x": 170,
+    "y": 120,
+    "wires": [
+      [
+        "ecobin_normalizar"
+      ]
+    ],
+    "topic": "ecobin/+/telemetria",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "ecobin_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "ecobin_normalizar",
+    "type": "function",
+    "z": "ecobin_local_flow",
+    "name": "Validar JSON e calcular situação",
+    "x": 465,
+    "y": 120,
+    "wires": [
+      [
+        "ecobin_preparar_http",
+        "ecobin_chat_id",
+        "ecobin_debug_leitura"
+      ]
+    ],
+    "func": "function normalizeReading(input) {\n  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Leitura precisa ser um objeto JSON.');\n  const result = {};\n  for (const name of ['lixeira', 'setor', 'compartimento']) {\n    if (typeof input[name] !== 'string' || !input[name].trim() || input[name].length > 100) {\n      throw new Error(`Campo ${name} ausente ou invalido.`);\n    }\n    result[name] = input[name].trim();\n  }\n  for (const [name, max] of [['massa_kg', 10000], ['distancia_cm', 1000], ['ocupacao_pct', 100]]) {\n    if (typeof input[name] !== 'number' || !Number.isFinite(input[name]) || input[name] < 0 || input[name] > max) {\n      throw new Error(`Campo ${name} precisa ser um numero entre 0 e ${max}.`);\n    }\n    result[name] = input[name];\n  }\n  if (typeof input.simulado !== 'boolean') throw new Error('Campo simulado precisa ser true ou false.');\n  result.simulado = input.simulado;\n  result.uptime_ms = Number.isSafeInteger(input.uptime_ms) && input.uptime_ms >= 0 ? input.uptime_ms : null;\n  result.coletar = result.massa_kg >= 8 || result.ocupacao_pct >= 80;\n  result.status = result.coletar ? 'coletar' : result.ocupacao_pct >= 70 ? 'acompanhar' : 'normal';\n  return result;\n}\ntry {\n    const input = typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload;\n    msg.payload = normalizeReading(input);\n    const parts = String(msg.topic || '').split('/');\n    if (parts.length === 3 && parts[0] === 'ecobin' && parts[2] === 'telemetria' && parts[1] !== msg.payload.lixeira) throw new Error('Lixeira nao corresponde ao topico MQTT.');\n    flow.set('ecobin_ultima_leitura', { ...msg.payload, recebido_em: new Date().toISOString() });\n    node.status({fill:'green',shape:'dot',text:msg.payload.lixeira+' / '+msg.payload.ocupacao_pct.toFixed(0)+'% / '+msg.payload.massa_kg.toFixed(2)+' kg'});\n    return msg;\n} catch (error) {\n    node.error('Telemetria rejeitada: ' + error.message, msg);\n    return null;\n}",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "ecobin_preparar_http",
+    "type": "function",
+    "z": "ecobin_local_flow",
+    "name": "JSON → API do site",
+    "x": 740,
+    "y": 120,
+    "wires": [
+      [
+        "ecobin_http"
+      ]
+    ],
+    "func": "msg.headers = {'Content-Type':'application/json'};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "ecobin_http",
+    "type": "http request",
+    "z": "ecobin_local_flow",
+    "name": "Salvar no site local :3000",
+    "x": 1005,
+    "y": 120,
+    "wires": [
+      [
+        "ecobin_http_resultado"
+      ]
+    ],
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "http://127.0.0.1:3000/api/telemetria",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "requestTimeout": "5000"
+  },
+  {
+    "id": "ecobin_http_resultado",
+    "type": "function",
+    "z": "ecobin_local_flow",
+    "name": "Resultado da gravação",
+    "x": 1270,
+    "y": 120,
+    "wires": [
+      []
+    ],
+    "func": "const ok = msg.statusCode === 201 && msg.payload?.ok === true;\nflow.set('ecobin_http', {ok,status:msg.statusCode || 0,atualizado_em:new Date().toISOString()});\nnode.status({fill:ok?'green':'red',shape:'dot',text:ok?'gravado / ID '+msg.payload.id:'erro HTTP '+msg.statusCode});\nif (!ok) node.error('Falha ao salvar leitura no site local. Inicie o site e confira a API.', msg);\nreturn null;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "ecobin_debug_leitura",
+    "type": "debug",
+    "z": "ecobin_local_flow",
+    "name": "Telemetria validada (opcional)",
+    "x": 755,
+    "y": 200,
+    "wires": [],
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto"
+  },
+  {
+    "id": "ecobin_chat_id",
+    "type": "change",
+    "z": "ecobin_local_flow",
+    "name": "PREENCHER: Chat ID do Telegram",
+    "x": 755,
+    "y": 300,
+    "wires": [
+      [
+        "ecobin_alerta"
+      ]
+    ],
+    "rules": [
+      {
+        "t": "set",
+        "p": "telegramChatId",
+        "pt": "msg",
+        "to": "",
+        "tot": "str"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false
+  },
+  {
+    "id": "ecobin_alerta",
+    "type": "function",
+    "z": "ecobin_local_flow",
+    "name": "Alerta de coleta · sem repetição",
+    "x": 1055,
+    "y": 300,
+    "wires": [
+      [
+        "ecobin_telegram"
+      ]
+    ],
+    "func": "// O Chat ID e preenchido no no Change anterior. Token fica nas credenciais do bot.\nconst chatId = String(msg.telegramChatId || '').trim();\nif (!/^-?\\d+$/.test(chatId)) {\n    flow.set('ecobin_telegram_configurado', false);\n    node.status({ fill: 'yellow', shape: 'ring', text: 'preencher Chat ID' });\n    return null;\n}\nflow.set('ecobin_telegram_configurado', true);\nif (msg.telegramTeste === true) {\n    msg.payload = {\n        chatId,\n        type: 'message',\n        content: 'EcoBin / ScriptBoys\\nTeste de conexao do Node-RED com o Telegram concluido.'\n    };\n    delete msg.telegramChatId;\n    return msg;\n}\n\nconst r = msg.payload;\nconst key = JSON.stringify([r.lixeira, r.setor, r.compartimento]);\nconst cache = flow.get('ecobin_alertas') || {};\nconst now = Date.now();\nconst state = cache[key] || { ativo: false, notificado: false, tentativa: 0, ciclo: 0 };\nif (!state.ativo && (r.massa_kg >= 8 || r.ocupacao_pct >= 80)) {\n    state.ativo = true;\n    state.notificado = false;\n    state.tentativa = 0;\n    state.ciclo = now;\n}\nif (state.ativo && r.massa_kg <= 7 && r.ocupacao_pct <= 70) {\n    state.ativo = false;\n    state.notificado = false;\n    state.tentativa = 0;\n}\ncache[key] = state;\nflow.set('ecobin_alertas', cache);\nif (!state.ativo) {\n    node.status({ fill: 'green', shape: 'dot', text: 'nivel normal' });\n    return null;\n}\nif (state.notificado || now - state.tentativa < 60000) {\n    node.status({ fill: 'yellow', shape: 'dot', text: state.notificado ? 'alerta ja entregue' : 'aguardando envio / nova tentativa em 60 s' });\n    return null;\n}\nstate.tentativa = now;\nflow.set('ecobin_alertas', cache);\nmsg.ecobinAlertaKey = key;\nmsg.ecobinAlertaCiclo = state.ciclo;\nmsg.payload = {\n    chatId,\n    type: 'message',\n    content: [\n        'ECOBIN - ALERTA DE COLETA',\n        '',\n        'Setor: ' + r.setor,\n        'Lixeira: ' + r.lixeira,\n        'Compartimento: ' + r.compartimento,\n        'Ocupacao: ' + r.ocupacao_pct.toFixed(1) + '%',\n        'Massa: ' + r.massa_kg.toFixed(2) + ' kg',\n        '',\n        'Acao: programar coleta interna.',\n        r.simulado ? 'Dados simulados do prototipo.' : 'Leitura dos sensores.',\n        'Recebido: ' + new Date(now).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })\n    ].join('\\n')\n};\ndelete msg.telegramChatId;\nnode.status({ fill: 'blue', shape: 'dot', text: 'enviando alerta' });\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "ecobin_telegram",
+    "type": "telegram sender",
+    "z": "ecobin_local_flow",
+    "name": "Telegram · bot EcoBin (Token)",
+    "x": 1350,
+    "y": 300,
+    "wires": [
+      [
+        "ecobin_telegram_ok"
+      ],
+      [
+        "ecobin_error_sanitize"
+      ]
+    ],
+    "bot": "ecobin_telegram_bot",
+    "haserroroutput": true,
+    "outputs": 2
+  },
+  {
+    "id": "ecobin_telegram_ok",
+    "type": "function",
+    "z": "ecobin_local_flow",
+    "name": "Confirmar entrega",
+    "x": 1610,
+    "y": 280,
+    "wires": [
+      [
+        "ecobin_debug_telegram"
+      ]
+    ],
+    "func": "if (msg.ecobinAlertaKey) {\n    const cache = flow.get('ecobin_alertas') || {};\n    const state = cache[msg.ecobinAlertaKey];\n    if (state && state.ativo && state.ciclo === msg.ecobinAlertaCiclo) {\n        state.notificado = true;\n        flow.set('ecobin_alertas', cache);\n    }\n}\nflow.set('ecobin_ultimo_telegram', Date.now());\nmsg.payload = { sucesso: true, origem: 'Telegram', enviado_em: new Date().toISOString(), messageId: msg.payload?.sentMessageId };\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "ecobin_debug_telegram",
+    "type": "debug",
+    "z": "ecobin_local_flow",
+    "name": "Telegram entregue",
+    "x": 1830,
+    "y": 280,
+    "wires": [],
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto"
+  },
+  {
+    "id": "ecobin_test_telegram",
+    "type": "inject",
+    "z": "ecobin_local_flow",
+    "name": "Testar Telegram (manual)",
+    "x": 450,
+    "y": 360,
+    "wires": [
+      [
+        "ecobin_chat_id"
+      ]
+    ],
+    "props": [
+      {
+        "p": "telegramTeste",
+        "v": "true",
+        "vt": "bool"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "ecobin_telegram_guide",
+    "type": "comment",
+    "z": "ecobin_local_flow",
+    "name": "Telegram: bot único em polling → /start → Chat ID → alertas",
+    "x": 930,
+    "y": 245,
+    "wires": [],
+    "info": "Pode usar o bot antigo. Selecione a mesma configuracao de Bot nos nos Telegram do EcoBin e mantenha polling. Depois de Deploy, envie /start novamente ao bot. Ele responde com o Chat ID. Copie o numero para o no laranja, faca Deploy e teste. Os alertas de coleta ficam bloqueados enquanto Chat ID estiver vazio."
+  },
+  {
+    "id": "ecobin_catch",
+    "type": "catch",
+    "z": "ecobin_local_flow",
+    "name": "Erros do fluxo EcoBin",
+    "x": 175,
+    "y": 460,
+    "wires": [
+      [
+        "ecobin_error_sanitize"
+      ]
+    ],
+    "scope": null,
+    "uncaught": false
+  },
+  {
+    "id": "ecobin_error_sanitize",
+    "type": "function",
+    "z": "ecobin_local_flow",
+    "name": "Erro resumido (sem token)",
+    "x": 455,
+    "y": 460,
+    "wires": [
+      [
+        "ecobin_debug_error"
+      ]
+    ],
+    "func": "const error = msg.error;\nconst text = (typeof error === 'string' ? error : error?.message) || 'Falha na integracao.';\nmsg = {payload:{erro:text.replace(/bot\\d+:[A-Za-z0-9_-]+/g,'bot<token-omitido>'),origem:error?.source?.name || 'EcoBin',horario:new Date().toISOString()}};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "ecobin_debug_error",
+    "type": "debug",
+    "z": "ecobin_local_flow",
+    "name": "Erros EcoBin",
+    "x": 735,
+    "y": 460,
+    "wires": [],
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto"
+  },
+  {
+    "id": "ecobin_status_mqtt",
+    "type": "status",
+    "z": "ecobin_local_flow",
+    "name": "Estado da conexão EMQX",
+    "x": 185,
+    "y": 520,
+    "wires": [
+      [
+        "ecobin_status_func"
+      ]
+    ],
+    "scope": [
+      "ecobin_mqtt"
+    ]
+  },
+  {
+    "id": "ecobin_status_func",
+    "type": "function",
+    "z": "ecobin_local_flow",
+    "name": "Registrar conexão",
+    "x": 455,
+    "y": 520,
+    "wires": [
+      [
+        "ecobin_debug_status"
+      ]
+    ],
+    "func": "flow.set('ecobin_mqtt_status',msg.status?.text || 'desconhecido');\nmsg.payload=msg.status;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "ecobin_debug_status",
+    "type": "debug",
+    "z": "ecobin_local_flow",
+    "name": "Conexão EMQX",
+    "x": 735,
+    "y": 520,
+    "wires": [],
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto"
+  },
+  {
+    "id": "ecobin_endpoint",
+    "type": "http in",
+    "z": "ecobin_local_flow",
+    "name": "GET /ecobin/estado",
+    "x": 170,
+    "y": 620,
+    "wires": [
+      [
+        "ecobin_endpoint_func"
+      ]
+    ],
+    "url": "/ecobin/estado",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": ""
+  },
+  {
+    "id": "ecobin_endpoint_func",
+    "type": "function",
+    "z": "ecobin_local_flow",
+    "name": "Consultar integração local",
+    "x": 460,
+    "y": 620,
+    "wires": [
+      [
+        "ecobin_endpoint_response"
+      ]
+    ],
+    "func": "msg.payload={mqtt:flow.get('ecobin_mqtt_status')||'aguardando',ultima_leitura:flow.get('ecobin_ultima_leitura')||null,site:flow.get('ecobin_http')||null,telegram_chat_configurado:flow.get('ecobin_telegram_configurado')||false,ultimo_telegram:flow.get('ecobin_ultimo_telegram')||null,telegram_bot:flow.get('ecobin_bot_info')||null,ultimo_start:flow.get('ecobin_ultimo_start')||null,chats_recebidos:(flow.get('ecobin_chats')||[]).length};\nmsg.headers={'Content-Type':'application/json'};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "ecobin_endpoint_response",
+    "type": "http response",
+    "z": "ecobin_local_flow",
+    "name": "Estado JSON",
+    "x": 740,
+    "y": 620,
+    "wires": [],
+    "statusCode": "200",
+    "headers": {}
+  },
+  {
+    "id": "ecobin_chat_guide",
+    "type": "comment",
+    "z": "ecobin_local_flow",
+    "name": "CONFIGURAR TELEGRAM: envie /start ao bot para receber seu Chat ID",
+    "x": 540,
+    "y": 710,
+    "wires": [],
+    "info": "O receptor compartilha a mesma configuracao do bot de envio. Ele responde somente a /start e mostra Chat IDs no Debug. O botao manual consulta os chats ja recebidos; nao executa getUpdates concorrente com polling. O destino dos alertas continua sendo escolhido no no laranja."
+  },
+  {
+    "id": "ecobin_telegram_receiver",
+    "type": "telegram receiver",
+    "z": "ecobin_local_flow",
+    "name": "Receber /start do Telegram",
+    "x": 185,
+    "y": 770,
+    "wires": [
+      [
+        "ecobin_telegram_receber"
+      ],
+      []
+    ],
+    "bot": "ecobin_telegram_bot",
+    "saveDataDir": "",
+    "filterCommands": false,
+    "hasinput": false,
+    "inputs": 0,
+    "handleallupdates": false,
+    "handleprocessupdates": false
+  },
+  {
+    "id": "ecobin_telegram_receber",
+    "type": "function",
+    "z": "ecobin_local_flow",
+    "name": "Responder /start com Chat ID",
+    "x": 510,
+    "y": 770,
+    "wires": [
+      [
+        "ecobin_telegram"
+      ],
+      [
+        "ecobin_chat_debug"
+      ]
+    ],
+    "func": "const p = msg.payload;\nif (!p || p.type !== 'message' || typeof p.content !== 'string' || !/^\\/start(?:@\\w+)?(?:\\s|$)/.test(p.content.trim())) return null;\nconst chatId = String(p.chatId || '');\nif (!/^-?\\d+$/.test(chatId)) return null;\nconst chat = msg.originalMessage?.chat || {};\nconst chats = flow.get('ecobin_chats') || [];\nconst entry = { chatId, tipo: chat.type || 'desconhecido', nome: chat.title || chat.first_name || '', recebido_em: new Date().toISOString() };\nconst saved = [entry, ...chats.filter(c => c.chatId !== chatId)].slice(0, 30);\nflow.set('ecobin_chats', saved);\nflow.set('ecobin_ultimo_start', entry.recebido_em);\nnode.status({ fill: 'green', shape: 'dot', text: '/start recebido' });\n// A resposta vai somente ao chat que iniciou a conversa. O destino dos alertas continua manual.\nconst reply = { payload: {\n    chatId, type: 'message',\n    content: 'EcoBin conectado ao Node-RED.\\n\\nSeu Chat ID: ' + chatId + '\\n\\nCopie este numero para o no \"PREENCHER: Chat ID do Telegram\" e faca Deploy para ativar os alertas de coleta.'\n} };\nreturn [reply, { payload: { chats: saved, instrucao: 'Copie o chatId desejado para o no laranja e faca Deploy.' } }];\n",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "ecobin_chat_lookup_inject",
+    "type": "inject",
+    "z": "ecobin_local_flow",
+    "name": "Obter Chat ID (manual)",
+    "x": 190,
+    "y": 850,
+    "wires": [
+      [
+        "ecobin_chat_lookup"
+      ]
+    ],
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "ecobin_chat_lookup",
+    "type": "function",
+    "z": "ecobin_local_flow",
+    "name": "Consultar Chat IDs recebidos",
+    "x": 505,
+    "y": 850,
+    "wires": [
+      [
+        "ecobin_chat_debug"
+      ]
+    ],
+    "func": "const chats = flow.get('ecobin_chats') || [];\nmsg.payload = chats.length ? {\n    chats,\n    instrucao: 'Copie o chatId desejado para o no PREENCHER: Chat ID do Telegram e faca Deploy.'\n} : {\n    aviso: 'Envie /start novamente ao bot correto. O receptor precisa estar implantado antes da mensagem.',\n    bot: flow.get('ecobin_bot_info') || null\n};\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "ecobin_chat_debug",
+    "type": "debug",
+    "z": "ecobin_local_flow",
+    "name": "SEU CHAT ID (copiar para nó laranja)",
+    "x": 850,
+    "y": 820,
+    "wires": [],
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto"
+  },
+  {
+    "id": "ecobin_bot_check_inject",
+    "type": "inject",
+    "z": "ecobin_local_flow",
+    "name": "Verificar bot (getMe)",
+    "x": 180,
+    "y": 950,
+    "wires": [
+      [
+        "ecobin_bot_check"
+      ]
+    ],
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 2,
+    "payload": "{\"type\":\"callApi\",\"method\":\"getMe\",\"args\":[]}",
+    "payloadType": "json"
+  },
+  {
+    "id": "ecobin_bot_check",
+    "type": "telegram sender",
+    "z": "ecobin_local_flow",
+    "name": "Identificar bot configurado",
+    "x": 475,
+    "y": 950,
+    "wires": [
+      [
+        "ecobin_bot_check_result"
+      ],
+      [
+        "ecobin_error_sanitize"
+      ]
+    ],
+    "bot": "ecobin_telegram_bot",
+    "haserroroutput": true,
+    "outputs": 2
+  },
+  {
+    "id": "ecobin_bot_check_result",
+    "type": "function",
+    "z": "ecobin_local_flow",
+    "name": "Guardar nome público do bot",
+    "x": 780,
+    "y": 950,
+    "wires": [
+      [
+        "ecobin_bot_debug"
+      ]
+    ],
+    "func": "const bot=msg.payload?.content;if(!bot?.is_bot){node.error('getMe nao retornou um bot valido',msg);return null;}\nmsg.payload={ok:true,username:bot.username,nome:bot.first_name};flow.set('ecobin_bot_info',msg.payload);node.status({fill:'green',shape:'dot',text:'@'+bot.username});return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "ecobin_bot_debug",
+    "type": "debug",
+    "z": "ecobin_local_flow",
+    "name": "Bot Telegram confirmado (sem token)",
+    "x": 1100,
+    "y": 950,
+    "wires": [],
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto"
+  }
+]

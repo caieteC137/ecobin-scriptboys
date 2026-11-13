@@ -1,0 +1,23 @@
+# Credenciais locais e dados de execucao
+secrets.h
+**/.env
+**/.env.*
+!**/.env.example
+**/*_cred.json
+!cloud/nodered/flows_cred.json
+**/.config.runtime.json*
+*.pem
+*.key
+*.bak
+*.backup
+**/data/
+**/node_modules/
+**/__pycache__/
+*.pyc
+*.sqlite*
+*.log
+*.tar.gz
+.DS_Store
+apresentacao/output/*.pptx
+apresentacao/.build/
+cloud/admin-password.txt

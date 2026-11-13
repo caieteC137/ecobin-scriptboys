@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1200" viewBox="0 0 1700 1200">
+<defs><style>
+text{font-family:DejaVu Sans,sans-serif;fill:#172c37} .title{font-size:46px;font-weight:700}.sub{font-size:22px;fill:#536873}.label{font-size:23px;font-weight:600}.small{font-size:19px}.pin{font-family:DejaVu Sans Mono,monospace;font-size:22px}.note{font-size:20px}
+</style></defs>
+<rect width="1700" height="1200" fill="#fff"/>
+<text x="70" y="80" class="title" text-anchor="start">EcoBin | Diagrama elétrico</text>
+<text x="70" y="122" class="sub" text-anchor="start">Proposta para os sensores físicos • ESP32 clássico • Revisão 1 • 06/11/2026</text>
+<rect x="70" y="145" width="1560" height="48" rx="8" fill="#fff4db"/>
+<text x="90" y="177" class="small" text-anchor="start">O firmware atual usa simulação. Os GPIOs abaixo são propostos e ainda precisam ser implementados.</text>
+<rect x="130" y="280" width="330" height="380" rx="12" fill="#f5f9fa" stroke="#385863" stroke-width="2"/>
+<text x="295.0" y="325" class="label" text-anchor="middle">ESP32 Dev Module</text>
+<text x="295.0" y="357" class="small" text-anchor="middle">Placa de desenvolvimento</text>
+<text x="165" y="385" class="small" text-anchor="start">Lógica: 3,3 V</text>
+<text x="165" y="420" class="small" text-anchor="start">Wi-Fi → EMQX</text>
+<text x="165" y="457" class="small" text-anchor="start">Alimentação pela USB</text>
+<text x="165" y="494" class="small" text-anchor="start">Posições simbólicas</text>
+<text x="165" y="523" class="small" text-anchor="start">dos terminais</text>
+<text x="478" y="338" class="pin" text-anchor="start">GPIO25</text>
+<circle cx="460" cy="350" r="5" fill="#2367ba"/>
+<text x="478" y="418" class="pin" text-anchor="start">GPIO26</text>
+<circle cx="460" cy="430" r="5" fill="#2367ba"/>
+<text x="478" y="538" class="pin" text-anchor="start">GPIO32</text>
+<circle cx="460" cy="550" r="5" fill="#2367ba"/>
+<text x="478" y="598" class="pin" text-anchor="start">GPIO33</text>
+<circle cx="460" cy="610" r="5" fill="#2367ba"/>
+<polyline points="245,280 245,236" fill="none" stroke="#cf3b36" stroke-width="3" stroke-linejoin="round"/>
+<text x="245" y="224" class="small" text-anchor="middle" style="fill:#bc302c">USB / +5V_USB</text>
+<polyline points="390,280 390,254 560,254" fill="none" stroke="#d28717" stroke-width="3" stroke-linejoin="round"/>
+<text x="574" y="261" class="small" text-anchor="start" style="fill:#97600c">+3V3 (saída)</text>
+<polyline points="295,660 295,680" fill="none" stroke="#52616b" stroke-width="3" stroke-linejoin="round"/>
+<polyline points="275,680 315,680" fill="none" stroke="#52616b" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="282,687 308,687" fill="none" stroke="#52616b" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="289,694 301,694" fill="none" stroke="#52616b" stroke-width="2" stroke-linejoin="round"/>
+<text x="295" y="721" class="small" text-anchor="middle">GND</text>
+<rect x="1220" y="280" width="360" height="250" rx="12" fill="#f5f9fa" stroke="#385863" stroke-width="2"/>
+<text x="1400.0" y="325" class="label" text-anchor="middle">HC-SR04</text>
+<text x="1400.0" y="357" class="small" text-anchor="middle"></text>
+<text x="1400" y="385" class="small" text-anchor="middle">Ocupação / distância</text>
+<text x="1238" y="345" class="pin" text-anchor="start">TRIG</text>
+<text x="1238" y="425" class="pin" text-anchor="start">ECHO</text>
+<polyline points="1400,280 1400,238" fill="none" stroke="#cf3b36" stroke-width="3" stroke-linejoin="round"/>
+<text x="1400" y="224" class="small" text-anchor="middle" style="fill:#bc302c">VCC → +5V_USB</text>
+<text x="1400" y="511" class="pin" text-anchor="middle">GND</text>
+<polyline points="1400,530 1400,550" fill="none" stroke="#52616b" stroke-width="3" stroke-linejoin="round"/>
+<polyline points="1380,550 1420,550" fill="none" stroke="#52616b" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1387,557 1413,557" fill="none" stroke="#52616b" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1394,564 1406,564" fill="none" stroke="#52616b" stroke-width="2" stroke-linejoin="round"/>
+<text x="1400" y="591" class="small" text-anchor="middle">GND</text>
+<polyline points="460,350 1220,350" fill="none" stroke="#168d81" stroke-width="3" stroke-linejoin="round"/>
+<text x="750" y="333" class="small" text-anchor="middle" style="fill:#168d81">TRIG • pulso ≥ 10 µs</text>
+<circle cx="1220" cy="350" r="5" fill="#168d81"/>
+<polyline points="1220,430 1130,430" fill="none" stroke="#2367ba" stroke-width="3" stroke-linejoin="round"/>
+<polyline points="990,430 1005,430" fill="none" stroke="#2367ba" stroke-width="3" stroke-linejoin="round"/>
+<rect x="1005" y="419" width="110" height="22" fill="white" stroke="#2367ba" stroke-width="3"/>
+<polyline points="1115,430 1130,430" fill="none" stroke="#2367ba" stroke-width="3" stroke-linejoin="round"/>
+<text x="1060.0" y="404" class="small" text-anchor="middle">R1 = 1 kΩ</text>
+<polyline points="990,430 460,430" fill="none" stroke="#2367ba" stroke-width="3" stroke-linejoin="round"/>
+<circle cx="860" cy="430" r="5" fill="#2367ba"/>
+<text x="1167" y="463" class="small" text-anchor="middle">≈ 5 V</text>
+<text x="690" y="407" class="small" text-anchor="middle">≈ 3,33 V para GPIO26</text>
+<polyline points="860,430 860,469" fill="none" stroke="#2367ba" stroke-width="3" stroke-linejoin="round"/>
+<polyline points="860,469 860,481" fill="none" stroke="#2367ba" stroke-width="3" stroke-linejoin="round"/>
+<rect x="849" y="481" width="22" height="46" fill="white" stroke="#2367ba" stroke-width="3"/>
+<polyline points="860,527 860,539" fill="none" stroke="#2367ba" stroke-width="3" stroke-linejoin="round"/>
+<text x="886" y="511.0" class="small" text-anchor="start">R2 = 2 kΩ</text>
+<polyline points="860,539 860,559" fill="none" stroke="#52616b" stroke-width="3" stroke-linejoin="round"/>
+<polyline points="840,559 880,559" fill="none" stroke="#52616b" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="847,566 873,566" fill="none" stroke="#52616b" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="854,573 866,573" fill="none" stroke="#52616b" stroke-width="2" stroke-linejoin="round"/>
+<text x="860" y="600" class="small" text-anchor="middle">GND</text>
+<text x="1000" y="558" class="small" text-anchor="start">Resistores de 1%</text>
+<text x="1000" y="586" class="small" text-anchor="start">Não ligar ECHO direto ao ESP32.</text>
+<rect x="900" y="685" width="260" height="315" rx="12" fill="#f5f9fa" stroke="#385863" stroke-width="2"/>
+<text x="1030.0" y="730" class="label" text-anchor="middle">HX711</text>
+<text x="1030.0" y="762" class="small" text-anchor="middle">Módulo amplificador / ADC</text>
+<text x="918" y="808" class="pin" text-anchor="start">DT / DOUT</text>
+<text x="918" y="888" class="pin" text-anchor="start">SCK</text>
+<polyline points="460,550 660,550 660,810 900,810" fill="none" stroke="#2367ba" stroke-width="3" stroke-linejoin="round"/>
+<text x="678" y="792" class="small" text-anchor="start">dados</text>
+<polyline points="460,610 600,610 600,890 900,890" fill="none" stroke="#7455b0" stroke-width="3" stroke-linejoin="round"/>
+<text x="678" y="872" class="small" text-anchor="start" style="fill:#7455b0">clock</text>
+<polyline points="1025,685 1025,667" fill="none" stroke="#d28717" stroke-width="3" stroke-linejoin="round"/>
+<text x="1025" y="651" class="small" text-anchor="middle" style="fill:#97600c">VCC → +3V3</text>
+<text x="1030" y="979" class="pin" text-anchor="middle">GND</text>
+<polyline points="1030,1000 1030,1020" fill="none" stroke="#52616b" stroke-width="3" stroke-linejoin="round"/>
+<polyline points="1010,1020 1050,1020" fill="none" stroke="#52616b" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1017,1027 1043,1027" fill="none" stroke="#52616b" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1024,1034 1036,1034" fill="none" stroke="#52616b" stroke-width="2" stroke-linejoin="round"/>
+<text x="1030" y="1061" class="small" text-anchor="middle">GND</text>
+<rect x="1360" y="710" width="270" height="290" rx="12" fill="#f5f9fa" stroke="#385863" stroke-width="2"/>
+<text x="1495.0" y="755" class="label" text-anchor="middle">Célula de carga</text>
+<text x="1495.0" y="787" class="small" text-anchor="middle">Ponte completa • 4 fios</text>
+<text x="1142" y="815" class="pin" text-anchor="end">E+</text>
+<polyline points="1160,825 1360,825" fill="none" stroke="#cf3b36" stroke-width="3" stroke-linejoin="round"/>
+<text x="1376" y="815" class="small" text-anchor="start">excitação +</text>
+<text x="1142" y="865" class="pin" text-anchor="end">E−</text>
+<polyline points="1160,875 1360,875" fill="none" stroke="#52616b" stroke-width="3" stroke-linejoin="round"/>
+<text x="1376" y="865" class="small" text-anchor="start">excitação −</text>
+<text x="1142" y="915" class="pin" text-anchor="end">A+</text>
+<polyline points="1160,925 1360,925" fill="none" stroke="#168d81" stroke-width="3" stroke-linejoin="round"/>
+<text x="1376" y="915" class="small" text-anchor="start">sinal +</text>
+<text x="1142" y="965" class="pin" text-anchor="end">A−</text>
+<polyline points="1160,975 1360,975" fill="none" stroke="#7455b0" stroke-width="3" stroke-linejoin="round"/>
+<text x="1376" y="965" class="small" text-anchor="start">sinal −</text>
+<text x="1260" y="793" class="small" text-anchor="middle">Canal A</text>
+<text x="70" y="790" class="small" text-anchor="start">REDES DE ALIMENTAÇÃO</text>
+<text x="70" y="828" class="small" text-anchor="start">+5V_USB: USB do ESP32 e VCC do HC-SR04.</text>
+<text x="70" y="863" class="small" text-anchor="start">+3V3: saída 3V3 do ESP32 e VCC do HX711.</text>
+<text x="70" y="898" class="small" text-anchor="start">Todos os símbolos GND são interligados.</text>
+<text x="70" y="947" class="small" text-anchor="start">ECHO: 5 × 2 / (1 + 2) ≈ 3,33 V</text>
+<text x="70" y="981" class="small" text-anchor="start">R1 e R2: 1/4 W, tolerância de 1%.</text>
+<line x1="70" y1="1082" x2="1630" y2="1082" stroke="#d4dfe2" stroke-width="2"/>
+<text x="70" y="1114" class="note" text-anchor="start">Montagem: confirme o pino de 5 V ligado à USB na sua placa; não presuma que qualquer pino VIN fornece 5 V.</text>
+<text x="70" y="1147" class="note" text-anchor="start">HX711: módulo compatível com 3,3 V. Célula: siga E+/E− e sinal +/− do fabricante; as cores dos fios podem variar.</text>
+<text x="70" y="1180" class="small" text-anchor="start">Base: apresentação EcoBin, slide 5. Leitura real, tara e calibração ainda precisam ser adicionadas ao firmware.</text>
+</svg>

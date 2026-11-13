@@ -1,0 +1,6 @@
+{
+  "name": "ecobin-nodered-cloud",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": { "node-red-contrib-telegrambot": "19.0.2" }
+}
