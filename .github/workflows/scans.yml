@@ -99,6 +99,7 @@ jobs:
         with:
           scan-args: |-
             --recursive
+            --allow-no-lockfiles
             --format=json
             --output=osv.json
             ./
@@ -188,6 +189,8 @@ jobs:
                   )
               if len(achados) > 30:
                   linhas.append(f'\nExibidos 30 de {len(achados)} findings. Os demais estão no log do SCA.')
+          elif not dados['results']:
+              linhas.append('Nenhuma fonte de dependências reconhecida; não houve dependências para analisar.')
           else:
               linhas.append('Nenhuma vulnerabilidade identificada nas dependências reconhecidas.')
           linhas.append('\nA versão corrigida é informada pelo OSV quando disponível. Verifique a compatibilidade antes de atualizar a dependência.')
